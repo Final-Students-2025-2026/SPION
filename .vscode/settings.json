@@ -1,0 +1,14 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "cSpell.words": [
+        "Adum",
+        "gethostname",
+        "Keychron",
+        "KNUST",
+        "sessionmaker",
+        "supabase"
+    ],
+    "cSpell.ignoreWords": [
+        "sb_publishable_eKoszEVWiLylbazs"
+    ]
+}

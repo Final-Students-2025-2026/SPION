@@ -1,0 +1,180 @@
+@import '@fontsource-variable/inter';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/600.css';
+@import '@fontsource/space-grotesk/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+/* ---------------------------------------------------
+   SPION Design Tokens
+--------------------------------------------------- */
+:root {
+  --bg-void: #060a08;
+  --bg-base: #081310;
+  --bg-panel: #0d1a15;
+  --bg-panel-raised: #10201a;
+  --bg-inset: #05100c;
+  --hairline: rgba(210, 255, 235, 0.07);
+  --hairline-strong: rgba(210, 255, 235, 0.14);
+
+  --signal: #33e28f;
+  --signal-dim: #1f9d69;
+  --signal-deep: #0f4d34;
+  --signal-glow: rgba(51, 226, 143, 0.35);
+  --signal-wash: rgba(51, 226, 143, 0.08);
+
+  --warn: #f5b545;
+  --danger: #f2495c;
+  --danger-wash: rgba(242, 73, 92, 0.1);
+
+  --ink-high: #eef7f2;
+  --ink-mid: #9db3a8;
+  --ink-low: #5d7369;
+  --ink-on-signal: #04140d;
+
+  --font-display: 'Space Grotesk', 'Inter Variable', system-ui, sans-serif;
+  --font-body: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 20px 40px -24px rgba(0, 0, 0, 0.6);
+}
+
+/* Light theme override — toggled via Settings. Same structure, inverted surfaces. */
+body[data-theme='light'] {
+  --bg-void: #f4f8f6;
+  --bg-base: #eef4f1;
+  --bg-panel: #ffffff;
+  --bg-panel-raised: #f3f8f5;
+  --bg-inset: #eaf1ed;
+  --hairline: rgba(10, 40, 28, 0.08);
+  --hairline-strong: rgba(10, 40, 28, 0.14);
+
+  --signal: #0f9d5c;
+  --signal-dim: #0c7d4a;
+  --signal-deep: #0a5c37;
+  --signal-glow: rgba(15, 157, 92, 0.25);
+  --signal-wash: rgba(15, 157, 92, 0.08);
+
+  --ink-high: #0c1a14;
+  --ink-mid: #4d5f56;
+  --ink-low: #7c8f86;
+  --ink-on-signal: #f4fbf7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-void);
+  color: var(--ink-high);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  transition: background-color 220ms var(--ease-out), color 220ms var(--ease-out);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--signal-wash);
+  color: var(--ink-high);
+}
+
+.scroll-region {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+.scroll-region::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-region::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: 8px;
+}
+.scroll-region::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-low);
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+.mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.01em;
+}
+
+.spin {
+  animation: spion-spin 1s linear infinite;
+}
+@keyframes spion-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.hex-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: radial-gradient(circle at 1px 1px, rgba(210, 255, 235, 0.05) 1px, transparent 0);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 90%);
+}

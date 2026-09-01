@@ -1,0 +1,24 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+
+<meta 
+http-equiv="Content-Security-Policy"
+content="
+default-src 'self';
+connect-src 'self' http://127.0.0.1:8000 http://localhost:8000 https://cihxwshoupuvpxhlbgat.supabase.co ws://127.0.0.1:8000 ws://localhost:8000 wss:;
+img-src 'self' data: https://cihxwshoupuvpxhlbgat.supabase.co;
+style-src 'self' 'unsafe-inline';
+script-src 'self';
+"
+/>
+
+    <title>SPION</title>
+</head>
+
+<body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

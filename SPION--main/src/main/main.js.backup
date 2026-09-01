@@ -1,0 +1,538 @@
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain
+} from 'electron'
+
+import { join } from 'path'
+import { fileURLToPath } from 'url'
+import * as dbus from 'dbus-next'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+const isMac = process.platform === 'darwin'
+
+let mainWindow = null
+let tray = null
+
+// =====================================================
+// GEOCLUE
+// =====================================================
+
+let geoBus = null
+let geoClient = null
+let geoLocationPath = null
+
+async function initializeGeoClue() {
+  try {
+    console.log('================================')
+    console.log('INITIALIZING GEOCLUE')
+    console.log('================================')
+
+    geoBus = dbus.systemBus()
+
+    const managerObject =
+      await geoBus.getProxyObject(
+        'org.freedesktop.GeoClue2',
+        '/org/freedesktop/GeoClue2/Manager'
+      )
+
+    const manager =
+      managerObject.getInterface(
+        'org.freedesktop.GeoClue2.Manager'
+      )
+
+    // -------------------------------------------------
+    // Create GeoClue client
+    // -------------------------------------------------
+
+    const clientPath =
+      await manager.CreateClient()
+
+    console.log(
+      'GEOCLUE CLIENT:',
+      clientPath
+    )
+
+    const clientObject =
+      await geoBus.getProxyObject(
+        'org.freedesktop.GeoClue2',
+        clientPath
+      )
+
+    geoClient =
+      clientObject.getInterface(
+        'org.freedesktop.GeoClue2.Client'
+      )
+
+    // -------------------------------------------------
+    // Identify SPION to GeoClue
+    // -------------------------------------------------
+
+    await geoClient.setProperty(
+      'DesktopId',
+      'spion'
+    )
+
+    // Accuracy:
+    // 0 = none
+    // 1 = country
+    // 2 = city
+    // 3 = neighborhood
+    // 4 = street
+    // 5 = exact
+    // 6 = maximum available
+
+    await geoClient.setProperty(
+      'RequestedAccuracyLevel',
+      6
+    )
+
+    // -------------------------------------------------
+    // Listen for location changes
+    // -------------------------------------------------
+
+    geoClient.on(
+      'LocationUpdated',
+      async (
+        oldLocation,
+        newLocation
+      ) => {
+
+        console.log(
+          'GEOCLUE LOCATION UPDATED:',
+          newLocation
+        )
+
+        geoLocationPath =
+          newLocation
+      }
+    )
+
+    // -------------------------------------------------
+    // Start location tracking
+    // -------------------------------------------------
+
+    await geoClient.Start()
+
+    console.log(
+      'GEOCLUE STARTED SUCCESSFULLY'
+    )
+
+    // -------------------------------------------------
+    // Read initial location
+    // -------------------------------------------------
+
+    try {
+
+      const location =
+        geoClient.Location
+
+      if (location) {
+
+        geoLocationPath =
+          location
+
+        console.log(
+          'INITIAL GEOCLUE LOCATION:',
+          location
+        )
+      }
+
+    } catch (error) {
+
+      console.log(
+        'No initial GeoClue location yet.'
+      )
+    }
+
+  } catch (error) {
+
+    console.error(
+      'GEOCLUE INITIALIZATION FAILED:',
+      error
+    )
+
+    geoBus = null
+    geoClient = null
+  }
+}
+
+
+// =====================================================
+// GET GEOCLUE LOCATION
+// =====================================================
+
+async function getGeoClueLocation() {
+
+  try {
+
+    if (!geoBus || !geoClient) {
+
+      await initializeGeoClue()
+
+    }
+
+    if (!geoClient) {
+
+      throw new Error(
+        'GeoClue client unavailable'
+      )
+
+    }
+
+    // -------------------------------------------------
+    // GeoClue Client.Location contains an object path
+    // -------------------------------------------------
+
+    const locationPath =
+      geoClient.Location
+
+    if (
+      !locationPath ||
+      locationPath ===
+        '/org/freedesktop/GeoClue2/Location/0'
+    ) {
+
+      throw new Error(
+        'GeoClue has not produced a location yet'
+      )
+
+    }
+
+    const locationObject =
+      await geoBus.getProxyObject(
+        'org.freedesktop.GeoClue2',
+        locationPath
+      )
+
+    const location =
+      locationObject.getInterface(
+        'org.freedesktop.GeoClue2.Location'
+      )
+
+    const latitude =
+      Number(location.Latitude)
+
+    const longitude =
+      Number(location.Longitude)
+
+    const accuracy =
+      Number(location.Accuracy)
+
+    const altitude =
+      Number(location.Altitude)
+
+    const timestamp =
+      location.Timestamp
+
+    console.log(
+      '================================'
+    )
+
+    console.log(
+      'GEOCLUE LOCATION'
+    )
+
+    console.log(
+      'Latitude:',
+      latitude
+    )
+
+    console.log(
+      'Longitude:',
+      longitude
+    )
+
+    console.log(
+      'Accuracy:',
+      accuracy,
+      'meters'
+    )
+
+    console.log(
+      'Altitude:',
+      altitude
+    )
+
+    console.log(
+      'Timestamp:',
+      timestamp
+    )
+
+    console.log(
+      '================================'
+    )
+
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
+
+      throw new Error(
+        'GeoClue returned invalid coordinates'
+      )
+
+    }
+
+    return {
+
+      success: true,
+
+      latitude,
+      longitude,
+
+      accuracy:
+        Number.isFinite(accuracy)
+          ? accuracy
+          : null,
+
+      altitude:
+        Number.isFinite(altitude)
+          ? altitude
+          : null,
+
+      timestamp
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      'GEOCLUE LOCATION ERROR:',
+      error
+    )
+
+    return {
+
+      success: false,
+
+      error:
+        error.message ||
+        'Unable to determine location'
+
+    }
+
+  }
+}
+
+
+// =====================================================
+// WINDOW
+// =====================================================
+
+function createWindow() {
+
+  mainWindow =
+    new BrowserWindow({
+
+      width: 1440,
+
+      height: 900,
+
+      minWidth: 1080,
+
+      minHeight: 680,
+
+      show: false,
+
+      autoHideMenuBar: true,
+
+      backgroundColor: '#06110c',
+
+      titleBarStyle:
+        isMac
+          ? 'hiddenInset'
+          : 'default',
+
+      webPreferences: {
+
+        preload:
+          join(
+            __dirname,
+            '../preload/preload.cjs'
+          ),
+
+        sandbox: false,
+
+        contextIsolation: true,
+
+        nodeIntegration: false
+
+      }
+
+    })
+
+  mainWindow.on(
+    'ready-to-show',
+    () => {
+
+      mainWindow.show()
+
+    }
+  )
+
+  mainWindow.webContents.setWindowOpenHandler(
+    (details) => {
+
+      shell.openExternal(
+        details.url
+      )
+
+      return {
+        action: 'deny'
+      }
+
+    }
+  )
+
+  if (
+    process.env.ELECTRON_RENDERER_URL
+  ) {
+
+    mainWindow.loadURL(
+      process.env.ELECTRON_RENDERER_URL
+    )
+
+  } else {
+
+    mainWindow.loadFile(
+      join(
+        __dirname,
+        '../renderer/index.html'
+      )
+    )
+
+  }
+}
+
+
+// =====================================================
+// APP START
+// =====================================================
+
+app.whenReady().then(
+  async () => {
+
+    createWindow()
+
+    // Start GeoClue after Electron is ready
+    await initializeGeoClue()
+
+    app.on(
+      'activate',
+      function () {
+
+        if (
+          BrowserWindow.getAllWindows()
+            .length === 0
+        ) {
+
+          createWindow()
+
+        }
+
+      }
+    )
+
+  }
+)
+
+
+// =====================================================
+// DEVICE LOCK
+// =====================================================
+
+ipcMain.handle(
+  'spion:lock-device',
+  async () => {
+
+    return {
+
+      ok: true,
+
+      timestamp:
+        Date.now()
+
+    }
+
+  }
+)
+
+
+// =====================================================
+// LOCATION IPC
+// =====================================================
+
+ipcMain.handle(
+  'spion:get-location',
+  async () => {
+
+    return await getGeoClueLocation()
+
+  }
+)
+
+
+// =====================================================
+// CLEANUP
+// =====================================================
+
+app.on(
+  'before-quit',
+  async () => {
+
+    try {
+
+      if (geoClient) {
+
+        await geoClient.Stop()
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        'Failed to stop GeoClue:',
+        error
+      )
+
+    }
+
+    try {
+
+      if (geoBus) {
+
+        geoBus.disconnect()
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        'Failed to disconnect GeoClue:',
+        error
+      )
+
+    }
+
+  }
+)
+
+
+// =====================================================
+// WINDOW CLOSE
+// =====================================================
+
+app.on(
+  'window-all-closed',
+  () => {
+
+    if (!isMac) {
+
+      app.quit()
+
+    }
+
+  }
+)
